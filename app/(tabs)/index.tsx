@@ -12,11 +12,12 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
+// CORRECCIÓN: Agregado CircleAlert a la importación
 import { MapPin, QrCode, Zap, Clock, Info, CircleAlert } from 'lucide-react-native';
 import { database } from '@/bdConfig/bd';
 
 const { width, height } = Dimensions.get('window');
-const SCAN_AREA_SIZE = width * 0.7; 
+const SCAN_AREA_SIZE = width * 0.7;
 
 interface ScanResult {
   data: string;
@@ -41,7 +42,7 @@ export default function ScannerScreen() {
     if (!isScanning && lastScan) {
       const timer = setTimeout(() => {
         setIsScanning(true);
-      }, 3000); 
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [isScanning, lastScan]);
@@ -82,7 +83,9 @@ export default function ScannerScreen() {
     try {
       if (locationPermission) {
         const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High, 
+          accuracy: Location.Accuracy.High,
+          // CORRECCIÓN: Eliminada la propiedad 'timeout' que no es válida aquí.
+          // Si necesitas un timeout, impleméntalo fuera de esta función o usa Promise.race.
         });
         setLocation(loc);
       }
@@ -98,7 +101,7 @@ export default function ScannerScreen() {
         duration: 300,
         useNativeDriver: true,
       }),
-      Animated.delay(2500), 
+      Animated.delay(2500),
       Animated.timing(notificationOpacity, {
         toValue: 0,
         duration: 400,
@@ -127,17 +130,30 @@ export default function ScannerScreen() {
   };
 
   const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
-    if (!isScanning) return; 
+    if (!isScanning) return;
 
     try {
-      setIsScanning(false); 
+      setIsScanning(false);
       let currentLocation = null;
       if (locationPermission) {
         try {
-          currentLocation = await Location.getCurrentPositionAsync({
+          const locPromise = Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.High,
+            // CORRECCIÓN: Eliminada la propiedad 'timeout' aquí también.
           });
-          setLocation(currentLocation); 
+
+          // Opcional: Implementa un timeout manual si es crítico
+          currentLocation = await Promise.race([
+            locPromise,
+            new Promise<Location.LocationObject>((_, reject) =>
+              setTimeout(() => reject(new Error('Location timeout')), 5000) // 5 segundos de timeout
+            )
+          ]).catch(error => {
+            console.warn('Error or timeout getting location during scan:', error);
+            return null; // Devuelve null si hay un error o timeout
+          });
+
+          setLocation(currentLocation);
         } catch (error) {
           console.error('Error getting current location during scan:', error);
         }
@@ -180,7 +196,7 @@ export default function ScannerScreen() {
       console.log('Scan saved successfully with ID:', id);
     } catch (error) {
       console.error('Error saving scan:', error);
-      throw error; 
+      throw error;
     }
   };
 
@@ -249,7 +265,7 @@ export default function ScannerScreen() {
           <View style={newStyles.overlay}>
             <View style={newStyles.scanArea}>
               {/* Corrected corner styles application */}
-              <View style={[newStyles.corner, newStyles.topLeft]} /> 
+              <View style={[newStyles.corner, newStyles.topLeft]} />
               <View style={[newStyles.corner, newStyles.topRight]} />
               <View style={[newStyles.corner, newStyles.bottomLeft]} />
               <View style={[newStyles.corner, newStyles.bottomRight]} />
@@ -259,7 +275,7 @@ export default function ScannerScreen() {
                   <Text style={newStyles.scanningText}>Procesando escaneo...</Text>
                 </View>
               )}
-              {isScanning && ( 
+              {isScanning && (
                 <Text style={newStyles.scanHintText}>Centra el código QR en el recuadro</Text>
               )}
             </View>
@@ -269,7 +285,7 @@ export default function ScannerScreen() {
 
       <View style={newStyles.bottomPanel}>
         <Text style={newStyles.instructionText}>
-          Apunta la cámara hacia un código QR para escanearlo.
+          Apuntar la cámara hacia un código QR para escanearlo.
         </Text>
 
         {scanCount > 0 && (
@@ -344,7 +360,7 @@ const newStyles = StyleSheet.create({
     marginBottom: 40,
   },
   permissionButton: {
-    backgroundColor: '#4A90E2', 
+    backgroundColor: '#4A90E2',
     paddingHorizontal: 35,
     paddingVertical: 18,
     borderRadius: 15,
@@ -398,7 +414,7 @@ const newStyles = StyleSheet.create({
   },
   gpsInfo: {
     position: 'absolute',
-    top: 25, 
+    top: 25,
     left: 20,
     right: 20,
     flexDirection: 'row',
@@ -416,7 +432,7 @@ const newStyles = StyleSheet.create({
   },
   gpsInfoWarning: {
     position: 'absolute',
-    top: 25, 
+    top: 25,
     left: 20,
     right: 20,
     flexDirection: 'row',
@@ -434,7 +450,7 @@ const newStyles = StyleSheet.create({
   },
   gpsInfoError: {
     position: 'absolute',
-    top: 25, 
+    top: 25,
     left: 20,
     right: 20,
     flexDirection: 'row',
@@ -498,7 +514,7 @@ const newStyles = StyleSheet.create({
     alignItems: 'center',
   },
   // Base style for all corners - applied to all four corner views
-  corner: { 
+  corner: {
     position: 'absolute',
     width: 50, // Slightly larger corners
     height: 50,
@@ -538,7 +554,7 @@ const newStyles = StyleSheet.create({
     paddingHorizontal: 25,
     paddingVertical: 12,
     borderRadius: 30, // More rounded "pill" shape
-    marginTop: 10, 
+    marginTop: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
